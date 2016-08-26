@@ -1,39 +1,28 @@
-'use strict';
+// Test application saves a URL from user input into app.locals and then redirects to that address in one of the requests
+// Method GET /awesome saves the URL to req.session.lastPage
+// Method GET /next redirects to the saved URL
 
 var express = require('express');
-var session = require('express-session');
-var cookieParser = require('cookie-parser');
+var session = require('express-session')
 var app = express();
 
-var routesArray = ['/login', '/auth', '/signup', '/email', '/chPassW', '/logout', '/snapshot'];
-
-
 app.disable('x-powered-by');
-app.use(routesArray, session({
-  genid: tokenGen,
-  name: 'auth_cookie',
-  secret: 'Nk8Y9b22n88QUtkR7uO3Bdgf274mlh68',
-  cookie: {
-    secure: true,
-    httpOnly: true
-  },  
+app.use(session({
+  secret: 'some secrete code',
+  resave: false,
+  saveUninitialized: true
 }));
 
-
-function tokenGen(req) {
-  const token = String(Math.floor(Math.random() * 1000000));
-  return token;
-}
-
-app.get('/', function(req, res){
-  res.send('Unauthenticated page');
+app.get('/awesome', function(req, res) {
+  req.session.lastPage = '/awesome';
+  res.send('Your Awesome.');
 });
 
-app.get('/login', function(req, res){
-  res.send('You are authenticated');
+app.get('/next', function(req, res){
+  console.log("go to the next page "+ req.session.lastPage);//app.locals.url);   
+  //redirect user to the value from req.session  
+  res.redirect(302, req.session.lastPage);
 });
-
 
 app.listen(3000);
 console.log("Server running on port 3000");
-
