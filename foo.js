@@ -1,84 +1,84 @@
-const Hapi = require('hapi');
-const authJwt = require('hapi-auth-jwt');
-const jwt = require('jsonwebtoken');
-var Blankie = require('blankie');
-var Scooter = require('scooter');
-const Inert = require('inert');
-const server = new Hapi.Server();
-const port = 3000;
+var express = require('express');
+var jwt = require('jsonwebtoken');
+var cookieParser = require('cookie-parser')
 
-server.connection({port: port});
+var port = 3000;
+var app = express();
 
-var server2 = new Hapi.Server();
-server2.connection({ port: 3000 });
+var user = {
+  username: 'foo',
+  password: 'bar'
+};
 
-server2.register([{
-  register: Inert,
-  options: {}
-  },{
-  register: Scooter,
-  options: {}
-  },{
-  register: Blankie,
-  options: {scriptSrc: 'self'}
-  }], 
-  function (err) {
-  if (err) {
-      throw err;
-  }
+var tokenSettings = {
+  alg: 'HS256'
+};
+
+app.disable('x-powered-by');
+app.use(cookieParser())
+
+app.get('/', function(req, res) {
+  res.send('hey there');
 });
 
-let token =  jwt.sign(
-  {
-    id: user._id,
-    name: user.name, 
-    admin: user.admin
-  }, 
-  config.jwt_hmac_secret, 
-  {
-    expiresIn: "2h",    // expire token in two hours
-    algorithm: 'HS256'
-  }
-);
-
-// defining validateFunc
-const validate = function(req, decoded_token, cb){
-  console.log("calling validate function");
-  console.log("token: "+decoded_token.accountId);
-  if (! decoded_token.accountId || decoded_token.accountId != 123){
-    console.log("Missing creds");
-    return cb({error: "Missing creds"});
+app.get('/login', function(req, res) {
+  if (req.query.username == user.username &&
+      req.query.password == user.password) {
+    var token = jwt.sign(user, secret, {
+      expiresIn: '5m',
+      alg: 'HS256'
+    });
+    res.cookie('token', token, {});
+    res.send('you should have a cookie');
   } else {
-    return cb({name:"John"});
+    res.send('bad login');
   }
-}
-
-// defining main handler
-const getMain = function (request, reply) {
-  console.log("Get Main Function");
-  reply('hello, ' + request.auth);
-}
-
-server.register(authJwt, function(err){
-  server.auth.strategy('jwt-auth', 'jwt', {
-    key: config.jwt_hmac_secret,      //obtain secret from config file
-    validateFunc: validate,           //point to defined 'validate' function
-    verifyOptions: {                  //provide verification options to jsonwebtokens library
-      algorithms: ['HS256'],
-      ignoreNotBefore: true,
-      ignoreExpiration: true
-    }
-  });
-});
-server.route({
-  method: 'GET',
-  path: '/',
-  config: {
-    auth: 'jwt-auth'                  //use jwt-auth strategy to access page
-  },
-  handler: getMain
 });
 
-server.start(function () {
-  console.log('Now Visit: http://localhost:' + port);
+app.get('/test', function (req, res) {
+  if (req.cookies.token) {
+    jwt.verify(req.cookies.token, 'test4',
+	       {
+		 ignoreExpiration: true,
+		 algorithms: ['HS256']
+	       }, function (err, token) {
+		 res.json(token);
+	       });
+  } else {
+    res.send('no token');
+  }
 });
+
+app.get('/test2', function (req, res) {
+  if (req.cookies.token) {
+    jwt.verify(req.cookies.token, 'test4',
+	       {
+		 ignoreNotBefore: true,
+		 algorithms: ['HS256']
+	       }, function (err, token) {
+		 res.json(token);
+	       });
+  } else {
+    res.send('no token');
+  }
+});
+
+app.get('/test3', function (req, res) {
+  if (req.cookies.token) {
+    jwt.verify(req.cookies.token, 'test4',
+	       {
+		 ignoreNotBefore: true,
+		 ignoreExpiration: true,
+		 algorithms: ['HS256']
+	       }, function (err, token) {
+		 res.json(token);
+	       });
+  } else {
+    res.send('no token');
+  }
+});
+
+app.listen(port, () => {
+  console.log("i'm listening...");
+});
+
